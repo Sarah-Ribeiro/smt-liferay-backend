@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -21,6 +22,7 @@ public class GetUsersResponse {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class UserResponse {
+        private UUID id;
         private String token;
         private String fullName;
         private String cpf;

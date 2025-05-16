@@ -2,6 +2,7 @@ package br.com.smt.portal.servidor.authentication.auth.user;
 
 import br.com.smt.portal.servidor.authentication.entity.Role;
 import br.com.smt.portal.servidor.authentication.entity.User;
+import br.com.smt.portal.servidor.authentication.repository.UserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +19,7 @@ import java.util.UUID;
 public class AuthenticationController {
 
     private final AuthenticationService service;
+    private final UserRepository repository;
 
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(@RequestBody RegisterRequest request) {
@@ -41,26 +43,7 @@ public class AuthenticationController {
 
     @GetMapping("/users")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<GetUsersResponse> getUsers(
-            @RequestParam(required = false) String username,
-            @RequestParam(required = false) String role, // Recebendo como String
-            @RequestHeader("Authorization") String token
-    ) {
-        String cleanToken = token.startsWith("Bearer ") ? token.substring(7) : token;
-
-        // Aqui fazemos a conversão para o enum Role
-        Role roleEnum = null;
-        if (role != null && !role.isEmpty()) {
-            try {
-                roleEnum = Role.valueOf(role); // Converte o String para o enum Role
-            } catch (IllegalArgumentException e) {
-                // Se não for um valor válido, log ou lançar um erro
-                System.out.println("Role inválido: " + role);
-            }
-        }
-
-        GetUsersRequest request = new GetUsersRequest(cleanToken, username, roleEnum != null ? roleEnum.name() : null);
-        System.out.println(cleanToken);
+    public ResponseEntity<GetUsersResponse> getUsers(GetUsersRequest request) {
         return ResponseEntity.ok(service.getUsers(request));
     }
 
@@ -69,26 +52,15 @@ public class AuthenticationController {
         return ResponseEntity.ok(service.registerNewAdmin(request));
     }
 
-    @GetMapping("/me/{username}")
-    public ResponseEntity<GetOneUserResponse> getOneUser(
-            @RequestHeader("Authorization") String token,
-            @PathVariable String username) {
-
-        // Remove o "Bearer " (com espaço)
-        String cleanToken = token.startsWith("Bearer ") ? token.substring(7) : token;
-
-        GetOneUserRequest request = GetOneUserRequest.builder()
-                .token(cleanToken)
-                .utilizer(username)
-                .build();
-
-        return ResponseEntity.ok(service.getOneUser(request, username));
+    @GetMapping("/me/{id}")
+    public ResponseEntity<GetOneUserResponse> getOneUser(@PathVariable UUID id, GetOneUserRequest request) {
+        return ResponseEntity.ok(service.getOneUser(request, id));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<DeleteByIdResponse> deleteById(@PathVariable UUID userId) throws AccessDeniedException {
-        DeleteByIdResponse response = service.deleteById(userId);  // Passa o UUID diretamente
+        DeleteByIdResponse response = service.deleteById(userId);
         return ResponseEntity.ok(response);
     }
 

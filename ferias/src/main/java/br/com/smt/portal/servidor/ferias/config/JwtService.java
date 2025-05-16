@@ -9,7 +9,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -63,6 +65,22 @@ public class JwtService {
     // Extrai a data de expiração do token
     private Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
+    }
+
+    public List<String> extractRoles(String token) {
+        Claims claims = Jwts.parser()
+                .setSigningKey(SECRET_KEY)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        List<String> roles = claims.get("authorities", List.class); // ou "roles", depende do token
+
+        if (roles == null) {
+            return Collections.emptyList();
+        }
+
+        return roles;
     }
 
     // Extrai todos os claims do token

@@ -14,6 +14,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -29,13 +31,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
             String token = authorizationHeader.substring(7);
             try {
-                String username = jwtService.extractUsername(token);
-                String role = jwtService.extractRole(token);
+                String email = jwtService.extractUsername(token);
+                List<String> roles = jwtService.extractRoles(token);
 
-                if (username != null && SecurityContextHolder.getContext().getAuthentication() == null && role != null) {
-                    if (jwtService.isTokenValid(token, username)) {
+                if (email != null && SecurityContextHolder.getContext().getAuthentication() == null && roles != null && !roles.isEmpty()) {
+                    var authorities = roles.stream()
+                            .map(role -> new SimpleGrantedAuthority("ROLE_"+role))
+                            .collect(Collectors.toList());
+
+                    if (jwtService.isTokenValid(token, email)) {
                         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                                username, null, Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
+                                email, null, authorities
                         );
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -50,5 +56,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         filterChain.doFilter(request, response);  // Continua a cadeia de filtros
     }
+
 
 }

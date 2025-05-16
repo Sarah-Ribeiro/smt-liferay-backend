@@ -36,7 +36,7 @@ public class FeriasController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
-    public List<Ferias> getEventsUser(Authentication authentication) {
+    public ResponseEntity<?> getEventsUser(Authentication authentication, Ferias ferias) {
         String username = authentication.getName();
         System.out.println("Username: " + username);
         authentication.getAuthorities().forEach(authority -> {
@@ -49,16 +49,18 @@ public class FeriasController {
 
         if (!isAdmin) {
             System.out.println("USER");
-            return feriasRepository.findByUserId(username);
+            var feriasPorId = feriasRepository.findByUserId(username);
+            return ResponseEntity.ok().body(feriasPorId);
         } else {
             System.out.println("ADMIN");
-            return feriasRepository.findAll();
+            var feriasTodas = feriasRepository.findAll();
+            return ResponseEntity.ok(feriasTodas);
         }
     }
 
     @DeleteMapping("/{feriasId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> deleteByEventId(Authentication authentication, @PathVariable UUID eventId) {
+    public ResponseEntity<?> deleteByEventId(Authentication authentication, @PathVariable UUID feriasId) {
         String username = authentication.getName();
         System.out.println("Username: " + username);
         authentication.getAuthorities().forEach(authority -> {
@@ -75,14 +77,14 @@ public class FeriasController {
             throw new RuntimeException("Um usuário comum não pode deletar um evento");
         } else {
             // Verifica se o evento existe antes de deletar
-            Optional<Ferias> eventToDelete = feriasRepository.findById(eventId);
+            Optional<Ferias> eventToDelete = feriasRepository.findById(feriasId);
 
             if (eventToDelete.isPresent()) {
-                feriasRepository.deleteById(eventId);
+                feriasRepository.deleteById(feriasId);
                 return ResponseEntity.noContent().build();  // Retorna HTTP 204 No Content para exclusão bem-sucedida
             } else {
                 // Caso o evento não exista
-                throw new RuntimeException("Evento não encontrado com o ID: " + eventId);
+                throw new RuntimeException("Evento não encontrado com o ID: " + feriasId);
             }
         }
     }

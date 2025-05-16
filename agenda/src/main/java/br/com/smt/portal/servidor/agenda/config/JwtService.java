@@ -9,9 +9,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 
 @Service
@@ -38,6 +36,22 @@ public class JwtService {
     // Extrai o nome de usuário do token
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
+    }
+
+    public List<String> extractRoles(String token) {
+        Claims claims = Jwts.parser()
+                .setSigningKey(SECRET_KEY)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        List<String> roles = claims.get("authorities", List.class); // ou "roles", depende do token
+
+        if (roles == null) {
+            return Collections.emptyList();
+        }
+
+        return roles;
     }
 
     // Extrai a role do token

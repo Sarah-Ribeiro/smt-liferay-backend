@@ -1,12 +1,12 @@
 package br.com.smt.portal.servidor.authentication.config;
 
 import java.security.Key;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 
+import br.com.smt.portal.servidor.authentication.entity.User;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -30,41 +30,43 @@ public class JwtService {
         return claimsResolver.apply(claims);
     }
 
-    public String extractRole(String token) {
-        String role = extractClaim(token, claims -> claims.get("role", String.class));
-        System.out.println("Extracted role: " + role);  // Verifique o valor extraído
-        return role;
+    public List<String> extractRoles(String token) {
+        Claims claims = Jwts.parser()
+                .setSigningKey(SECRET_KEY)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        List<String> roles = claims.get("authorities", List.class); // ou "roles", depende do token
+
+        if (roles == null) {
+            return Collections.emptyList();
+        }
+
+        return roles;
     }
 
     public String generateToken(UserDetails userDetails) {
-        // Obtém a role do usuário
-        String role = userDetails.getAuthorities().stream()
+        // Extraindo as authorities como lista de strings
+        var authorities = userDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
-                .map(r -> r.replace("ROLE_", "")) // Remove o prefixo
-                .findFirst()
-                .orElse("USER");  // Ou define uma role padrão
-        // Ou define uma role padrão, caso o usuário não tenha uma
+                .toList();
 
-        return generateToken(new HashMap<>(), userDetails, role);  // Passa a role para o método que gera o token
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("authorities", authorities); // 👈 Esta é a chave que o Spring Security usa
+
+        return generateToken(claims, userDetails);
     }
 
-    public String generateToken(
-            Map<String, Object> extraClaims,
-            UserDetails userDetails,
-            String role) {
+    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
         return Jwts.builder()
+                .setSubject(userDetails.getUsername())
                 .setClaims(extraClaims)
-                .claim("role", role)
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24 * 30))
+                .setExpiration(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24 * 30)) // 30 dias
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
-    }
-
-    public boolean isTokenValid(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
     }
 
     private Date extractExpiration(String token) {
@@ -80,12 +82,24 @@ public class JwtService {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public boolean validateToken(String token) {
-        return !isTokenExpired(token);
-    }
-
     private boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
+    }
+
+    public String generateTokenForUser(User user) {
+        Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("authorities", List.of("ROLE_" + user.getRole().name())); // a claim que você usa
+        extraClaims.put("cpf", user.getCpf());
+        extraClaims.put("matricula", user.getMatricula());
+        extraClaims.put("fullName", user.getFullName());
+
+        UserDetails userDetails = new org.springframework.security.core.userdetails.User(
+                user.getEmail(),
+                user.getPassword(),
+                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
+        );
+
+        return generateToken(extraClaims, userDetails);
     }
 
 }

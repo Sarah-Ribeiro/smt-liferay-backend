@@ -19,8 +19,9 @@ public class Ferias {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    private UUID id;
+    private UUID feriasId;
 
+    private String title;
     private String author;
     private LocalDateTime start;
     private LocalDateTime end;

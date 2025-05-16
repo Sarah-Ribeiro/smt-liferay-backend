@@ -7,6 +7,8 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -33,7 +35,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String authorizationHeader = request.getHeader("Authorization");
         String path = request.getServletPath();
 
-        if (path.startsWith("/api/v1/auth")) {
+        if (path.startsWith("/api/v1/auth/**")) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -42,12 +44,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = authorizationHeader.substring(7);
             try {
                 String email = jwtService.extractUsername(token);
-                String role = jwtService.extractRole(token);
+                List<String> roles = jwtService.extractRoles(token);
 
                 // Adicionando o prefixo "ROLE_" à role
-                if (email != null && role != null) {
+                if (email != null && roles != null && !roles.isEmpty()) {
+                    var authorities = roles.stream()
+                            .map(role -> new SimpleGrantedAuthority("ROLE_"+role))
+                            .collect(Collectors.toList());
+
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                            email, null, Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
+                            email, null, authorities
                     );
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }

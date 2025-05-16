@@ -85,7 +85,10 @@ public class AuthenticationService {
 
         var jwtToken = jwtService.generateToken(user);
 
-        return AuthenticationResponse.builder().cpf(user.getCpf()).fullName(user.getFullName()).matricula(user.getMatricula()).email(user.getEmail()).role(user.getRole().name()).utilizer(user.getUtilizer()).token(jwtToken).build();
+        return AuthenticationResponse.builder().id(user.getId()).cpf(user.getCpf())
+                .fullName(user.getFullName()).matricula(user.getMatricula())
+                .email(user.getEmail()).role(user.getRole().name())
+                .utilizer(user.getUtilizer()).token(jwtToken).build();
     }
 
     public GetUserByMatriculaResponse getUserByMatricula(GetUserByMatriculaRequest request) {
@@ -153,43 +156,41 @@ public class AuthenticationService {
     }
 
     public GetUsersResponse getUsers(GetUsersRequest request) {
-        List<User> users = repository.findAll();
-
-        if (request.getUtilizer() != null && !request.getUtilizer().isEmpty()) {
-            users = users.stream()
-                    .filter(user -> user.getUtilizer().equalsIgnoreCase(request.getUtilizer()))
-                    .collect(Collectors.toList());
-        }
-
-        if (request.getRole() != null) {
-            users = users.stream()
-                    .filter(user -> user.getRole().name().equals(request.getRole())) // Comparação correta
-                    .collect(Collectors.toList());
-        }
+        var users = repository.findAll();
 
         List<GetUsersResponse.UserResponse> userResponses = users.stream()
-                .map(user -> GetUsersResponse.UserResponse.builder()
-                        .token(jwtService.generateToken(user))
-                        .fullName(user.getFullName())
-                        .utilizer(user.getUtilizer())
-                        .cpf(user.getCpf())
-                        .matricula(user.getMatricula())
-                        .email(user.getEmail())
-                        .role(user.getRole().name())
-                        .build())
-                .collect(Collectors.toList());
+                .map(user -> {
+                    String userToken = jwtService.generateTokenForUser(user);
+                    return GetUsersResponse.UserResponse.builder()
+                            .id(user.getId())
+                            .token(userToken) // ou remova se não usar
+                            .fullName(user.getFullName())
+                            .cpf(user.getCpf())
+                            .utilizer(user.getUtilizer())
+                            .email(user.getEmail())
+                            .matricula(user.getMatricula())
+                            .role(user.getRole().name())
+                            .build();
+                }).toList();
 
-        return GetUsersResponse.builder().users(userResponses).build();
+        return GetUsersResponse.builder()
+                .users(userResponses)
+                .build();
     }
 
-    public GetOneUserResponse getOneUser(GetOneUserRequest request, String utilizer) {
-        User user = repository.findByUtilizer(utilizer)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado"));
+    public GetOneUserResponse getOneUser(GetOneUserRequest request, UUID id) {
+        var user = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+
+        String userToken = jwtService.generateTokenForUser(user);
 
         return GetOneUserResponse.builder()
-                .utilizer(user.getUtilizer())
+                .id(user.getId())
+                .token(userToken)
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .cpf(user.getCpf())
                 .role(user.getRole().name())
-                .token(request.getToken())
                 .build();
     }
 
@@ -213,5 +214,4 @@ public class AuthenticationService {
         // Retorna a resposta com o usuário excluído
         return DeleteByIdResponse.builder().user(List.of(userToDelete)).build();
     }
-
 }
